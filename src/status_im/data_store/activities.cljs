@@ -5,7 +5,13 @@
             clojure.set))
 
 (defn rpc->type [{:keys [type name] :as chat}]
+  (println chat "fdsfjdsio")
   (cond
+    (= constants/activity-center-notification-type-reply type)
+    (assoc chat
+           :chat-name name
+           :chat-type constants/private-group-chat-type)
+    
     (= constants/activity-center-notification-type-mention type)
     (assoc chat
            :chat-type constants/private-group-chat-type

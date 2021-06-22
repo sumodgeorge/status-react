@@ -129,7 +129,9 @@
                  :ellipsize-mode      :tail
                  :number-of-lines     1
                  :style               styles/title-text}
-       (if (= type constants/activity-center-notification-type-mention)
+       (if (or
+            (= type constants/activity-center-notification-type-mention)
+            (= type constants/activity-center-notification-type-reply))
          sender
          [home-item/chat-item-title chat-id muted group-chat chat-name])]
       [react/text {:style               styles/datetime-text
@@ -159,6 +161,19 @@
               {:color  colors/gray
                :width  16
                :height 22}]])
+          [quo/text {:color :secondary
+                     :weight :medium
+                     :size :small}
+           (str (when community-id "#") chat-name)]])
+       (when (= type constants/activity-center-notification-type-reply)
+         [react/view {:style styles/group-info-container
+                      :accessibility-label :reply-message-container}
+          [icons/icon
+           :main-icons/tiny-reply
+           {:color  colors/gray
+            :width  16
+            :height 16
+            :container-style styles/group-icon}]
           [quo/text {:color :secondary
                      :weight :medium
                      :size :small}
