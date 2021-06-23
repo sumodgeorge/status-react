@@ -354,14 +354,16 @@
   (let [{:keys [key-uid password save-password? creating?]}
         (:multiaccounts/login db)
 
-        multiaccounts            (:multiaccounts/multiaccounts db)
-        recovered-account?       (get db :recovered-account?)
-        login-only?              (not (or creating?
-                                          recovered-account?
-                                          (keycard-setup? cofx)))
-        nodes                    nil
-        should-send-metrics?     (get-in db [:multiaccount :anon-metrics/should-send?])
-        opt-in-screen-displayed? (get db :anon-metrics/opt-in-screen-displayed?)]
+        multiaccounts                    (:multiaccounts/multiaccounts db)
+        recovered-account?               (get db :recovered-account?)
+        login-only?                      (not (or creating?
+                                                  recovered-account?
+                                                  (keycard-setup? cofx)))
+        nodes                            nil
+        should-send-metrics?             (get-in db [:multiaccount :anon-metrics/should-send?])
+        metrics-opt-in-screen-displayed? (get db :anon-metrics/opt-in-screen-displayed?)
+        tos-accepted?                    (get db :tos/accepted?)
+        tos-opted-in-loading?            (get db :tos/opted-in-loading?)]
     (log/debug "[multiaccount] multiaccount-login-success"
                "login-only?" login-only?
                "recovered-account?" recovered-account?)
@@ -390,8 +392,17 @@
               (if login-only?
                 (login-only-events key-uid password save-password?)
                 (create-only-events))
+              ;; There is a race condition to show metrics opt-in and
+              ;; tos opt-in. Tos is more important and is displayed first.
+              ;; Metrics opt-in is diplayed the next time the user logs in
               (when (and login-only?
-                         (not opt-in-screen-displayed?)
+                         (not tos-accepted?)
+                         (not tos-opted-in-loading?))
+                (navigation/navigate-to :force-accept-tos {}))
+
+              (when (and login-only?
+                         tos-accepted?
+                         (not metrics-opt-in-screen-displayed?)
                          config/metrics-enabled?)
                 (navigation/navigate-to :anon-metrics-opt-in {})))))
 
@@ -524,8 +535,8 @@
               {:init-root-fx :chat-stack}
               (when first-account?
                 (acquisition/create))
-              #(when config/metrics-enabled?
-                 {:dispatch [:navigate-to :anon-metrics-opt-in]}))))
+              (when config/metrics-enabled?
+                {:dispatch [:navigate-to :anon-metrics-opt-in]}))))
 
 (fx/defn multiaccount-selected
   {:events [:multiaccounts.login.ui/multiaccount-selected]}
@@ -556,3 +567,26 @@
   [_]
   {::async-storage/get {:keys [:keycard-banner-hidden]
                         :cb   #(re-frame/dispatch [:get-keycard-banner-preference-cb %])}})
+
+(fx/defn get-opted-in-to-new-terms-of-service-cb
+  {:events [:get-opted-in-to-new-terms-of-service-cb]}
+  [{:keys [db]} {:keys [new-terms-of-service-accepted]}]
+  {:db (assoc db
+              :tos/opted-in-loading? false
+              :tos/accepted? new-terms-of-service-accepted)})
+
+(fx/defn get-opted-in-to-new-terms-of-service
+  "New TOS sprint https://github.com/status-im/status-react/pull/12240"
+  {:events [:get-opted-in-to-new-terms-of-service]}
+  [{:keys [db]}]
+  {:db                 (assoc db :tos/opted-in-loading? true)
+   ::async-storage/get {:keys [:new-terms-of-service-accepted]
+                        :cb   #(re-frame/dispatch [:get-opted-in-to-new-terms-of-service-cb %])}})
+
+(fx/defn hide-terms-of-services-opt-in-screen
+  {:events [:hide-terms-of-services-opt-screen]}
+  [{:keys [db]}]
+  {::async-storage/set! {:new-terms-of-service-accepted true}
+   :db                  (assoc db
+                               :tos/opted-in-loading? false
+                               :tos/accepted? true)})
