@@ -166,7 +166,9 @@
         (i18n/label :t/terms-of-service)]]]]
     [react/view {:style {:margin-bottom 24}}
      [quo/button {:disabled (not @tos-accepted)
-                  :on-press #(re-frame/dispatch [:init-root :onboarding])}
+                  :on-press #(do (re-frame/dispatch [:init-root :onboarding])
+                                 ;; clear atom state for next use
+                                 (reset! tos-accepted false))}
       (i18n/label :t/get-started)]]
     [react/text
      {:style    {:color      colors/blue}
