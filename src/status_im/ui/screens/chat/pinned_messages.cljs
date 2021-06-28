@@ -13,7 +13,8 @@
             [status-im.utils.platform :as platform]
             [quo.react :as quo.react]
             [status-im.ui.components.topbar :as topbar]
-            [status-im.ui.screens.chat.views :as chat]))
+            [status-im.ui.screens.chat.views :as chat]
+            [status-im.ui.components.list.views :as list]))
 
 (defn pins-topbar []
   (let [{:keys [group-chat chat-id chat-name]}
@@ -52,6 +53,9 @@
 
 (defonce messages-list-ref (atom nil))
 
+(def list-key-fn #(or (:message-id %) (:value %)))
+(def list-ref #(reset! messages-list-ref %))
+
 (defn render-pin-fn [{:keys [outgoing type] :as message}
                      idx
                      _
@@ -73,6 +77,30 @@
                :pinned true)
         space-keeper]))])
 
+(defn pinned-messages-view [{:keys [chat pan-responder space-keeper]}]
+  (let [{:keys [group-chat chat-id public? community-id admins]} chat
+        pinned-messages @(re-frame/subscribe [:chats/raw-chat-pin-messages-stream chat-id])]
+    (if (= (count pinned-messages) 0)
+      [pinned-messages-empty]
+      ;;do not use anonymous functions for handlers
+      [list/flat-list
+       (merge
+        pan-responder
+        {:key-fn                  list-key-fn
+         :ref                     list-ref
+         :data                    (reverse pinned-messages)
+         :render-data             (chat/get-render-data {:group-chat   group-chat
+                                                         :chat-id      chat-id
+                                                         :public?      public?
+                                                         :community-id community-id
+                                                         :admins       admins
+                                                         :space-keeper space-keeper
+                                                         :show-input?  false})
+         :render-fn               render-pin-fn
+         :content-container-style {:padding-top 16
+                                   :padding-bottom 16}
+         :style                   (when platform/android? {:scaleY -1})})])))
+
 (defn pinned-messages []
   (let [bottom-space (reagent/atom 0)
         panel-space (reagent/atom 52)
@@ -81,22 +109,11 @@
         pan-state (animated/value 0)
         text-input-ref (quo.react/create-ref)
         pan-responder (accessory/create-pan-responder position-y pan-state)
-        space-keeper (get-space-keeper-ios bottom-space panel-space active-panel text-input-ref)]
-    (fn []
-      (let [{:keys [chat-id] :as chat} @(re-frame/subscribe [:chats/current-chat-chat-view])
-            max-bottom-space (max @bottom-space @panel-space)
-            pinned-messages (re-frame/subscribe [:chats/raw-chat-pin-messages-stream chat-id])]
-        [:<>
-         [pins-topbar]
-         [connectivity/loading-indicator]
-         (if (= (count @pinned-messages) 0)
-           [pinned-messages-empty]
-           [chat/messages-view {:chat          chat
-                                :bottom-space  max-bottom-space
-                                :pan-responder pan-responder
-                                :space-keeper  space-keeper
-                                :inverted-ui   true
-                                :show-header   false
-                                :show-footer   false}
-            pinned-messages
-            render-pin-fn])]))))
+        space-keeper (get-space-keeper-ios bottom-space panel-space active-panel text-input-ref)
+        chat @(re-frame/subscribe [:chats/current-chat-chat-view])]
+    [:<>
+     [pins-topbar]
+     [connectivity/loading-indicator]
+     [pinned-messages-view {:chat          chat
+                            :pan-responder pan-responder
+                            :space-keeper  space-keeper}]]))
