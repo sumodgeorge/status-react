@@ -149,9 +149,6 @@ class TestCreateAccount(SingleDeviceTestCase):
         keycard_flow.connect_card_button.click()
         keycard_flow.enter_another_pin()
         keycard_flow.cancel_button.click()
-        if not keycard_flow.element_by_translation_id("keycard-cancel-setup-title").is_element_displayed():
-            self.driver.fail('No Dangerous operation popup is shown on canceling operation from PIN code stage')
-        keycard_flow.yes_button.click()
 
         sign_in.just_fyi('Cancel from Confirm seed phrase: initialized + 1 pairing slot is used')
         keycard_flow.begin_setup_button.click()
@@ -161,9 +158,6 @@ class TestCreateAccount(SingleDeviceTestCase):
         keycard_flow.confirm_button.click()
         keycard_flow.yes_button.click()
         keycard_flow.cancel_button.click()
-        if not keycard_flow.element_by_translation_id("keycard-cancel-setup-title").is_element_displayed():
-            self.driver.fail('No Dangerous operation popup is shown on canceling operation during Backup seed phrase stage')
-        keycard_flow.yes_button.click()
         if not keycard_flow.element_by_text_part('Back up seed phrase').is_element_displayed():
             self.driver.fail('On canceling setup from Confirm seed phrase was not redirected to expected screen')
 
@@ -214,9 +208,6 @@ class TestCreateAccount(SingleDeviceTestCase):
         keycard_flow.connect_card_button.click()
         keycard_flow.enter_another_pin()
         keycard_flow.cancel_button.click()
-        if not keycard_flow.element_by_translation_id("keycard-cancel-setup-title").is_element_displayed():
-            self.driver.fail('No Dangerous operation popup is shown on canceling operation from PIN code stage')
-        keycard_flow.yes_button.click()
 
         sign_in.just_fyi('Finish setup and relogin')
         keycard_flow.begin_setup_button.click()
