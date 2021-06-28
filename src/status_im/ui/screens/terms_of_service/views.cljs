@@ -6,6 +6,7 @@
             [quo.design-system.typography :as typography]
             [status-im.react-native.resources :as resources]
             [status-im.ui.components.icons.icons :as icons]
+            [status-im.ui.components.toolbar :as toolbar]
             [status-im.constants :refer [docs-link]]
             [re-frame.core :as re-frame]
             [status-im.ui.components.colors :as colors]))
@@ -28,6 +29,7 @@
 (defn change-list-item
   [label]
   [react/view {:flex-direction    :row
+               :align-items       :center
                :margin-horizontal (:base spacing/spacing)
                :margin-vertical   (:tiny spacing/spacing)}
    [icons/icon :main-icons/checkmark-circle
@@ -44,7 +46,9 @@
    [react/view {:style (merge {:align-items :center}
                               (:x-large spacing/padding-horizontal))}
     [react/image {:source (resources/get-image :status-logo)
-                  :style  {:margin-vertical (:base spacing/spacing)}}]
+                  :style  {:margin-vertical (:base spacing/spacing)
+                           :width           32
+                           :height          32}}]
     [quo/text {:size   :x-large
                :align  :center
                :weight :bold
@@ -81,9 +85,15 @@
 
    [quo/separator {:style {:margin-vertical (:base spacing/spacing)}}]
 
-   [react/view {:align-items :center}
-    [quo/button {:type :primary}
-     (i18n/label :t/accept-and-continue)]]])
+   [toolbar/toolbar
+    {:size :large
+     :center
+     [react/view {:padding-horizontal 8}
+      [quo/button {:type     :primary
+                   :on-press #(do
+                                (re-frame/dispatch [:hide-terms-of-services-opt-in-screen])
+                                (re-frame/dispatch [:init-root :chat-stack]))}
+       (i18n/label :t/accept-and-continue)]]}]])
 
 (comment
   (re-frame/dispatch [:navigate-to :force-accept-tos]))

@@ -298,6 +298,26 @@
         keychain/auth-method-biometric
         keychain/auth-method-password))))
 
+(defn redirect-to-root
+  "Decides which root should be initialised depending on user and app state"
+  [db]
+  (let [tos-accepted?                    (get db :tos/accepted?)
+        metrics-opt-in-screen-displayed? (get db :anon-metrics/opt-in-screen-displayed?)]
+    ;; There is a race condition to show metrics opt-in and
+    ;; tos opt-in. Tos is more important and is displayed first.
+    ;; Metrics opt-in is diplayed the next time the user logs in
+    (cond
+      (not tos-accepted?)
+      (re-frame/dispatch [:init-root :tos])
+
+      ;; TODO <shivekkhurana>: This needs work post new navigation
+      (and tos-accepted?
+           (not metrics-opt-in-screen-displayed?)
+           config/metrics-enabled?)
+      (navigation/navigate-to :anon-metrics-opt-in {})
+
+      :else (re-frame/dispatch [:init-root :chat-stack]))))
+
 (fx/defn login-only-events
   [{:keys [db] :as cofx} key-uid password save-password?]
   (let [auth-method     (:auth-method db)
@@ -316,7 +336,7 @@
                  :on-success #(re-frame/dispatch [::initialize-dapp-permissions %])}
                 {:method     "settings_getSettings"
                  :on-success #(do (re-frame/dispatch [::get-settings-callback %])
-                                  (re-frame/dispatch [:init-root :chat-stack]))}]}
+                                  (redirect-to-root db))}]}
               (notifications/load-notification-preferences)
               (when save-password?
                 (keychain/save-user-password key-uid password))
@@ -354,16 +374,13 @@
   (let [{:keys [key-uid password save-password? creating?]}
         (:multiaccounts/login db)
 
-        multiaccounts                    (:multiaccounts/multiaccounts db)
-        recovered-account?               (get db :recovered-account?)
-        login-only?                      (not (or creating?
-                                                  recovered-account?
-                                                  (keycard-setup? cofx)))
-        nodes                            nil
-        should-send-metrics?             (get-in db [:multiaccount :anon-metrics/should-send?])
-        metrics-opt-in-screen-displayed? (get db :anon-metrics/opt-in-screen-displayed?)
-        tos-accepted?                    (get db :tos/accepted?)
-        tos-opted-in-loading?            (get db :tos/opted-in-loading?)]
+        multiaccounts        (:multiaccounts/multiaccounts db)
+        recovered-account?   (get db :recovered-account?)
+        login-only?          (not (or creating?
+                                    recovered-account?
+                                    (keycard-setup? cofx)))
+        nodes                nil
+        should-send-metrics? (get-in db [:multiaccount :anon-metrics/should-send?])]
     (log/debug "[multiaccount] multiaccount-login-success"
                "login-only?" login-only?
                "recovered-account?" recovered-account?)
@@ -391,20 +408,7 @@
                 (wallet/set-initial-blocks-range))
               (if login-only?
                 (login-only-events key-uid password save-password?)
-                (create-only-events))
-              ;; There is a race condition to show metrics opt-in and
-              ;; tos opt-in. Tos is more important and is displayed first.
-              ;; Metrics opt-in is diplayed the next time the user logs in
-              (when (and login-only?
-                         (not tos-accepted?)
-                         (not tos-opted-in-loading?))
-                (navigation/navigate-to :force-accept-tos {}))
-
-              (when (and login-only?
-                         tos-accepted?
-                         (not metrics-opt-in-screen-displayed?)
-                         config/metrics-enabled?)
-                (navigation/navigate-to :anon-metrics-opt-in {})))))
+                (create-only-events)))))
 
 ;; FIXME(Ferossgp): We should not copy keys as we denormalize the database,
 ;; this create desync between actual accounts and the one on login causing broken state
@@ -571,22 +575,17 @@
 (fx/defn get-opted-in-to-new-terms-of-service-cb
   {:events [:get-opted-in-to-new-terms-of-service-cb]}
   [{:keys [db]} {:keys [new-terms-of-service-accepted]}]
-  {:db (assoc db
-              :tos/opted-in-loading? false
-              :tos/accepted? new-terms-of-service-accepted)})
+  {:db (assoc db :tos/accepted? new-terms-of-service-accepted)})
 
 (fx/defn get-opted-in-to-new-terms-of-service
   "New TOS sprint https://github.com/status-im/status-react/pull/12240"
   {:events [:get-opted-in-to-new-terms-of-service]}
   [{:keys [db]}]
-  {:db                 (assoc db :tos/opted-in-loading? true)
-   ::async-storage/get {:keys [:new-terms-of-service-accepted]
+  {::async-storage/get {:keys [:new-terms-of-service-accepted]
                         :cb   #(re-frame/dispatch [:get-opted-in-to-new-terms-of-service-cb %])}})
 
 (fx/defn hide-terms-of-services-opt-in-screen
-  {:events [:hide-terms-of-services-opt-screen]}
+  {:events [:hide-terms-of-services-opt-in-screen]}
   [{:keys [db]}]
   {::async-storage/set! {:new-terms-of-service-accepted true}
-   :db                  (assoc db
-                               :tos/opted-in-loading? false
-                               :tos/accepted? true)})
+   :db                  (assoc db :tos/accepted? true)})

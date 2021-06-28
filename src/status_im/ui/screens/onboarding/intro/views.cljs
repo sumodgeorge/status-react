@@ -168,7 +168,8 @@
      [quo/button {:disabled (not @tos-accepted)
                   :on-press #(do (re-frame/dispatch [:init-root :onboarding])
                                  ;; clear atom state for next use
-                                 (reset! tos-accepted false))}
+                                 (reset! tos-accepted false)
+                                 (re-frame/dispatch [:hide-terms-of-services-opt-in-screen]))}
       (i18n/label :t/get-started)]]
     [react/text
      {:style    {:color      colors/blue}
