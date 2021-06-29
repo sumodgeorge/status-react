@@ -163,7 +163,6 @@ class TestCreateAccount(SingleDeviceTestCase):
 
         sign_in.just_fyi('Cancel from Back Up seed phrase: initialized + 1 pairing slot is used')
         keycard_flow.cancel_button.click()
-        keycard_flow.yes_button.click()
         keycard_flow.begin_setup_button.click()
         keycard_flow.element_by_translation_id("back-up-seed-phrase").wait_for_element(10)
         new_seed_phrase = keycard_flow.get_seed_phrase()
